@@ -26,14 +26,18 @@ import com.palantir.lock.LockClient;
 import com.palantir.lock.LockDescriptor;
 import com.palantir.lock.LockMode;
 
-public class LockServerLock implements ClientAwareReadWriteLock {
+/**
+ * Methods on this class can be called by multiple threads,
+ * with synchronization handled by {@link LockServerSync}.
+ */
+class LockServerLock implements ClientAwareReadWriteLock {
     private static final Logger log = LoggerFactory.getLogger(LockServerLock.class);
 
     private final LockDescriptor descriptor;
     private final LockClientIndices clients;
     private final LockServerSync sync;
 
-    public LockServerLock(LockDescriptor descriptor,
+    LockServerLock(LockDescriptor descriptor,
                           LockClientIndices clients) {
         this.descriptor = Preconditions.checkNotNull(descriptor);
         this.clients = clients;
@@ -49,8 +53,8 @@ public class LockServerLock implements ClientAwareReadWriteLock {
     public KnownClientLock get(LockClient client, LockMode mode) {
         Preconditions.checkNotNull(client);
         switch (mode) {
-        case READ: return new ReadLock(sync, client);
-        case WRITE: return new WriteLock(sync, client);
+        case READ: return new ReadLock(client);
+        case WRITE: return new WriteLock(client);
         default: throw new EnumConstantNotPresentException(LockMode.class, mode.name());
         }
     }
@@ -82,11 +86,9 @@ public class LockServerLock implements ClientAwareReadWriteLock {
     }
 
     private class ReadLock implements KnownClientLock {
-        private final LockServerSync sync;
         private final int clientIndex;
 
-        public ReadLock(LockServerSync sync, LockClient client) {
-            this.sync = sync;
+        private ReadLock(LockClient client) {
             this.clientIndex = clients.toIndex(client);
         }
 
@@ -141,11 +143,9 @@ public class LockServerLock implements ClientAwareReadWriteLock {
     }
 
     private class WriteLock implements KnownClientLock {
-        private final LockServerSync sync;
         private final int clientIndex;
 
-        public WriteLock(LockServerSync sync, LockClient client) {
-            this.sync = sync;
+        private WriteLock(LockClient client) {
             this.clientIndex = clients.toIndex(client);
         }
 
